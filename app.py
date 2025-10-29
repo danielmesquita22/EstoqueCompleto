@@ -81,5 +81,37 @@ def atualizar(id):
     
     return jsonify({'mensagem': "Produto atualizado com sucesso"})
 
+@app.route('/produtos/pesquisar')
+def pesquisar():
+    con = conectar()
+    cur = con.cursor()
+
+    termo = request.args.get('termo')
+    preco_min = request.args.get('preco_min')
+    preco_max = request.args.get('preco_max')
+
+    query = 'SELECT * FROM produtos WHERE 1=1'
+    params = []
+
+    if termo:
+        query += ' AND (nome LIKE ? OR descricao LIKE ?)'
+        params.extend([f'%{termo}%', f'%{termo}%'])
+
+    if preco_min:
+        query += ' AND preco >= ?'
+        params.append(preco_min)
+
+    if preco_max:
+        query += ' AND preco <= ?'
+        params.append(preco_max)
+
+    cur.execute(query, params)
+    dados = cur.fetchall()
+    con.close()
+
+    resultado = [{"id": a[0], "nome": a[1], "preco": a[2], "descricao": a[3], "imagem": a[4]} for a in dados]
+    return jsonify(resultado)
+
 if __name__ == '__main__':
     app.run(debug=True)
+
