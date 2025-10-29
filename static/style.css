@@ -86,3 +86,28 @@ label {
     gap: 20px;
     background-color: #ffffff;
 }
+
+.filtros {
+    margin-bottom: 20px;
+    border: #333333;
+    border-radius: 5px; 
+}
+
+.filtros input[type="text"],
+.filtros input[type="number"] {
+    padding: 8px;
+    margin-right: 10px;
+    border: 1px solid #cccccc;
+    border-radius: 5px;
+    font-family: 'Montserrat', sans-serif;
+}
+
+#btnBuscar {
+    background-color: #4CAF50;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: 'Montserrat', sans-serif;
+}
