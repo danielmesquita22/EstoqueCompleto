@@ -1,164 +1,217 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width,initial-scale=1">
-	<title>Gerenciador de Produtos</title>
-	<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Gerenciador de Produtos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-	<h1 class="titulo_produtos">Produtos</h1>
-	<div id="mensagem" aria-live="polite"></div>
+    <h1 class="titulo_produtos">Produtos</h1>
+    <div id="mensagem" aria-live="polite"></div>
 
-	<form id="produtoForm">
-		<input type="hidden" id="produtoId">
-		<label>Nome
-			<input type="text" id="nome" required>
-		</label>
-		<label>Preço
-			<input type="number" id="preco" step="0.01" required>
-		</label>
-		<label>Descrição
-			<textarea id="descricao" rows="3"></textarea>
-		</label>
-		<label>Imagem (URL)
-			<input type="text" id="imagem">
-		</label>
-		<div style="margin-top:8px">
-			<button type="submit" id="salvarBtn">Adicionar</button>
-			<button type="button" id="cancelarBtn" style="display:none">Cancelar</button>
-		</div>
-	</form>
+    <form id="produtoForm">
+        <input type="hidden" id="produtoId">
+        <label>Nome
+            <input type="text" id="nome" required>
+        </label>
+        <label>Preço
+            <input type="number" id="preco" step="0.01" required>
+        </label>
+        <label>Descrição
+            <textarea id="descricao" rows="3"></textarea>
+        </label>
+        <label>Imagem (URL)
+            <input type="text" id="imagem">
+        </label>
+        <div style="margin-top:8px">
+            <button type="submit" id="salvarBtn">Adicionar</button>
+            <button type="button" id="cancelarBtn" style="display:none">Cancelar</button>
+        </div>
+    </form>
 
-	<ul id="lista"></ul>
+    <div class="filtros">
+        <input type="text" id="busca" placeholder="Buscar por nome">
+        <input type="number" id="precoMin" placeholder="Preço mínimo">
+        <input type="number" id="precoMax" placeholder="Preço máximo">
+        <button id="btnBuscar">Pesquisar</button>
+    </div>
 
-	<script>
-		const apiBase = '/produtos';
-		const mensagemEl = document.getElementById('mensagem');
-		let produtosCache = [];
+    <ul id="lista"></ul>
 
-		function showMessage(text, ok=true){
-			mensagemEl.innerHTML = '';
-			const div = document.createElement('div');
-			div.className = 'mensagem ' + (ok ? 'ok' : 'err');
-			div.textContent = text;
-			mensagemEl.appendChild(div);
-			setTimeout(()=>{ if(mensagemEl.contains(div)) mensagemEl.removeChild(div); }, 3500);
-		}
+    <script>
+        const apiBase = '/produtos';
+        const mensagemEl = document.getElementById('mensagem');
+        const listaEl = document.getElementById('lista');
+        const formEl = document.getElementById('produtoForm');
 
-		async function carregar(){
-			try{
-				const res = await fetch(apiBase);
-				if(!res.ok) throw new Error('Erro ao buscar produtos');
-				const dados = await res.json();
-				produtosCache = dados;
-				mostrarProdutos(dados);
-			}catch(e){
-				showMessage(e.message, false);
-			}
-		}
+        let produtosCache = [];
 
-		function mostrarProdutos(produtos){
-			const lista = document.getElementById('lista');
-			lista.innerHTML = '';
-			if(produtos.length === 0){
-				lista.innerHTML = '<li>Nenhum produto cadastrado.</li>';
-				return;
-			}
-					produtos.forEach(p=>{
-						const li = document.createElement('li');
-						li.className = 'produto-item';
-				const img = document.createElement('img');
-				img.className = 'thumb';
-				img.src = p.imagem || 'https://via.placeholder.com/80x80?text=Sem+Imagem';
+        function showMessage(text, ok = true) {
+            mensagemEl.innerHTML = '';
+            const div = document.createElement('div');
+            div.className = 'mensagem ' + (ok ? 'ok' : 'err');
+            div.textContent = text;
+            mensagemEl.appendChild(div);
+            setTimeout(() => { if (mensagemEl.contains(div)) mensagemEl.removeChild(div); }, 3500);
+        }
 
-				const det = document.createElement('div');
-				det.className = 'detalhes';
-				det.innerHTML = `<strong>${escapeHtml(p.nome)}</strong><br>R$ ${Number(p.preco).toFixed(2)}<br><small>${escapeHtml(p.descricao || '')}</small>`;
+        function escapeHtml(s) {
+            if (!s) return '';
+            return String(s).replace(/[&<>"'`]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' })[m]);
+        }
 
-				const acoes = document.createElement('div');
-				acoes.className = 'acoes';
-				const editarBtn = document.createElement('button'); editarBtn.textContent = 'Editar';
-				editarBtn.addEventListener('click', ()=> preencherForm(p));
-				const delBtn = document.createElement('button'); delBtn.textContent = 'Excluir';
-				delBtn.addEventListener('click', ()=> deletar(p.id));
+        function resetForm() {
+            formEl.reset();
+            document.getElementById('produtoId').value = '';
+            document.getElementById('salvarBtn').textContent = 'Adicionar';
+            document.getElementById('cancelarBtn').style.display = 'none';
+        }
 
-				acoes.appendChild(editarBtn);
-				acoes.appendChild(delBtn);
+        function preencherForm(p) {
+            document.getElementById('produtoId').value = p.id;
+            document.getElementById('nome').value = p.nome || '';
+            document.getElementById('preco').value = p.preco || '';
+            document.getElementById('descricao').value = p.descricao || '';
+            document.getElementById('imagem').value = p.imagem || '';
+            document.getElementById('salvarBtn').textContent = 'Salvar alterações';
+            document.getElementById('cancelarBtn').style.display = '';
+        }
 
-				li.appendChild(img);
-				li.appendChild(det);
-				li.appendChild(acoes);
-				lista.appendChild(li);
-			});
-		}
+        function mostrarProdutos(produtos) {
+            listaEl.innerHTML = '';
+            if (!produtos || produtos.length === 0) {
+                listaEl.innerHTML = '<li>Nenhum produto encontrado.</li>';
+                return;
+            }
 
-		function escapeHtml(s){
-			if(!s) return '';
-			return String(s).replace(/[&<>"'`]/g, (m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;",'`':'&#96;'})[m]);
-		}
+            produtos.forEach(p => {
+                const li = document.createElement('li');
+                li.className = 'produto-item';
 
-		function preencherForm(p){
-			document.getElementById('produtoId').value = p.id;
-			document.getElementById('nome').value = p.nome || '';
-			document.getElementById('preco').value = p.preco || '';
-			document.getElementById('descricao').value = p.descricao || '';
-			document.getElementById('imagem').value = p.imagem || '';
-			document.getElementById('salvarBtn').textContent = 'Salvar alterações';
-			document.getElementById('cancelarBtn').style.display = '';
-		}
+                const img = document.createElement('img');
+                img.className = 'thumb';
+                img.src = p.imagem || 'https://via.placeholder.com/80x80?text=Sem+Imagem';
 
-		document.getElementById('cancelarBtn').addEventListener('click', ()=>{
-			document.getElementById('produtoForm').reset();
-			document.getElementById('produtoId').value = '';
-			document.getElementById('salvarBtn').textContent = 'Adicionar';
-			document.getElementById('cancelarBtn').style.display = 'none';
-		});
+                const det = document.createElement('div');
+                det.className = 'detalhes';
+                det.innerHTML = `<strong>${escapeHtml(p.nome)}</strong><br>R$ ${Number(p.preco).toFixed(2)}<br><small>${escapeHtml(p.descricao || '')}</small>`;
 
-		document.getElementById('produtoForm').addEventListener('submit', async (e)=>{
-			e.preventDefault();
-			const id = document.getElementById('produtoId').value;
-			const nome = document.getElementById('nome').value.trim();
-			const preco = parseFloat(document.getElementById('preco').value) || 0;
-			const descricao = document.getElementById('descricao').value.trim();
-			const imagem = document.getElementById('imagem').value.trim();
+                const acoes = document.createElement('div');
+                acoes.className = 'acoes';
+                const editarBtn = document.createElement('button');
+                editarBtn.textContent = 'Editar';
+                editarBtn.addEventListener('click', () => preencherForm(p));
+                const delBtn = document.createElement('button');
+                delBtn.textContent = 'Excluir';
+                delBtn.addEventListener('click', () => deletar(p.id));
 
-			const payload = { nome, preco, descricao, imagem };
-			try{
-				let res;
-				if(id){
-					res = await fetch(`${apiBase}/${id}`, { method: 'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-				}else{
-					res = await fetch(apiBase, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-				}
-				if(!res.ok) throw new Error('Erro na operação');
-				const data = await res.json();
-				showMessage(data.mensagem || 'OK');
-				document.getElementById('produtoForm').reset();
-				document.getElementById('produtoId').value = '';
-				document.getElementById('salvarBtn').textContent = 'Adicionar';
-				document.getElementById('cancelarBtn').style.display = 'none';
-				carregar();
-			}catch(err){
-				showMessage(err.message, false);
-			}
-		});
+                acoes.appendChild(editarBtn);
+                acoes.appendChild(delBtn);
 
-		async function deletar(id){
-			if(!confirm('Confirma exclusão do produto ' + id + '?')) return;
-			try{
-				const res = await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
-				if(!res.ok) throw new Error('Erro ao deletar');
-				const data = await res.json();
-				showMessage(data.mensagem || 'Produto excluído');
-				carregar();
-			}catch(e){
-				showMessage(e.message, false);
-			}
-		}
+                li.appendChild(img);
+                li.appendChild(det);
+                li.appendChild(acoes);
+                listaEl.appendChild(li);
+            });
+        }
 
-		// Carrega inicialmente
-		carregar();
-	</script>
+        async function carregar(filtros = {}) {
+            try {
+                let url = apiBase;
+                if (Object.keys(filtros).length > 0) {
+                    const params = new URLSearchParams({
+                        termo: filtros.nome || '',
+                        preco_min: filtros.min || '',
+                        preco_max: filtros.max || ''
+                    });
+                    url = `${apiBase}/pesquisar?${params.toString()}`;
+                }
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('Erro ao buscar produtos');
+                const dados = await res.json();
+                produtosCache = dados;
+                mostrarProdutos(dados);
+            } catch (e) {
+                showMessage(e.message, false);
+            }
+        }
+
+        async function criarProduto(payload) {
+            const res = await fetch(apiBase, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error('Erro ao adicionar produto');
+            return res.json();
+        }
+
+        async function atualizarProduto(id, payload) {
+            const res = await fetch(`${apiBase}/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error('Erro ao atualizar produto');
+            return res.json();
+        }
+
+        async function deletar(id) {
+            if (!confirm('Confirma exclusão do produto ' + id + '?')) return;
+            try {
+                const res = await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error('Erro ao deletar');
+                const data = await res.json();
+                showMessage(data.mensagem || 'Produto excluído');
+                carregar();
+            } catch (e) {
+                showMessage(e.message, false);
+            }
+        }
+
+        document.getElementById('cancelarBtn').addEventListener('click', () => resetForm());
+
+        formEl.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('produtoId').value;
+            const nome = document.getElementById('nome').value.trim();
+            const preco = parseFloat(document.getElementById('preco').value) || 0;
+            const descricao = document.getElementById('descricao').value.trim();
+            const imagem = document.getElementById('imagem').value.trim();
+
+            const payload = { nome, preco, descricao, imagem };
+            try {
+                let data;
+                if (id) {
+                    data = await atualizarProduto(id, payload);
+                } else {
+                    data = await criarProduto(payload);
+                }
+                showMessage(data.mensagem || 'OK');
+                resetForm();
+                carregar();
+            } catch (err) {
+                showMessage(err.message, false);
+            }
+        });
+
+        document.getElementById('btnBuscar').addEventListener('click', () => {
+            const nome = document.getElementById('busca').value.trim();
+            const min = document.getElementById('precoMin').value;
+            const max = document.getElementById('precoMax').value;
+            carregar({ nome, min, max });
+        });
+
+        document.getElementById('busca').addEventListener('input', () => {
+            const nome = document.getElementById('busca').value.trim();
+            const min = document.getElementById('precoMin').value;
+            const max = document.getElementById('precoMax').value;
+            carregar({ nome, min, max });
+        });
+
+        carregar();
+    </script>
 </body>
 </html>
+
